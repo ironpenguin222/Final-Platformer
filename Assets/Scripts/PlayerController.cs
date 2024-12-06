@@ -1,4 +1,6 @@
+using Unity.VisualScripting.Antlr3.Runtime.Collections;
 using UnityEngine;
+using System.Collections;
 
 public enum PlayerDirection
 {
@@ -21,6 +23,11 @@ public class PlayerController : MonoBehaviour
     public float maxSpeed = 5f;
     public float accelerationTime = 0.25f;
     public float decelerationTime = 0.15f;
+    public float dashes = 1;
+    public float dashDist = 5;
+    private bool isDashing = false;
+    private float dashTimer = 0f;
+    private const float dashDuration = 0.2f;
 
     [Header("Vertical")]
     public float apexHeight = 3f;
@@ -40,7 +47,7 @@ public class PlayerController : MonoBehaviour
     private bool isGrounded = false;
     public bool isDead = false;
 
-    private Vector2 velocity;
+    private Vector3 velocity;
 
     public void Start()
     {
@@ -59,7 +66,7 @@ public class PlayerController : MonoBehaviour
 
         CheckForGround();
 
-        Vector2 playerInput = new Vector2();
+        Vector3 playerInput = new Vector2();
         playerInput.x = Input.GetAxisRaw("Horizontal");
 
         if (isDead)
@@ -96,18 +103,22 @@ public class PlayerController : MonoBehaviour
             velocity.y += gravity * Time.deltaTime;
         else
             velocity.y = 0;
+        if (isGrounded)
+            dashes = 1;
 
         body.velocity = velocity;
     }
 
-    private void MovementUpdate(Vector2 playerInput)
+
+
+    private void MovementUpdate(Vector3 playerInput)
     {
         if (playerInput.x < 0)
             currentDirection = PlayerDirection.left;
         else if (playerInput.x > 0)
             currentDirection = PlayerDirection.right;
 
-        if (playerInput.x != 0)
+        if (playerInput.x != 0 && !isDashing)
         {
             velocity.x += accelerationRate * playerInput.x * Time.deltaTime;
             velocity.x = Mathf.Clamp(velocity.x, -maxSpeed, maxSpeed);
@@ -125,6 +136,44 @@ public class PlayerController : MonoBehaviour
                 velocity.x = Mathf.Min(velocity.x, 0);
             }
         }
+        if (Input.GetKeyDown(KeyCode.Q) && dashes > 0 && !isDashing)
+        {
+            isDashing = true;
+            dashTimer = dashDuration;
+            dashes -= 1;
+
+            Vector3 dashDirection = new Vector3(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+
+            if (dashDirection.x == 0 && dashDirection.y == 0)
+            {
+                if (currentDirection == PlayerDirection.right)
+                {
+                    dashDirection = Vector3.right;
+                }
+                else if (currentDirection == PlayerDirection.left)
+                {
+                    dashDirection = Vector3.left;
+                }
+            }
+            else
+            {
+                float magnitude = Mathf.Sqrt(dashDirection.x * dashDirection.x + dashDirection.y * dashDirection.y);
+                dashDirection.x /= magnitude;
+                dashDirection.y /= magnitude;
+            }
+
+            velocity = dashDirection * (dashDist / dashDuration);
+        
+    }
+
+        if (isDashing)
+        {
+            dashTimer -= Time.deltaTime;
+            if (dashTimer <= 0)
+            {
+                isDashing = false;
+            }
+        }
     }
 
     private void JumpUpdate()
@@ -135,6 +184,25 @@ public class PlayerController : MonoBehaviour
             isGrounded = false;
         }
     }
+
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.gameObject.CompareTag("powerup"))
+        {
+            dashes = 1;
+            collision.gameObject.SetActive(false);
+            StartCoroutine(RespawnPowerup(collision.gameObject, 3f));
+        }
+    }
+
+    private IEnumerator RespawnPowerup(GameObject powerup, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        powerup.SetActive(true); 
+    }
+
+    
 
     private void CheckForGround()
     {
