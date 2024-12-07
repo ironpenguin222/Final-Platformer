@@ -32,21 +32,29 @@ public class PlayerController : MonoBehaviour
     [Header("Vertical")]
     public float apexHeight = 3f;
     public float apexTime = 0.5f;
+    public float maxFallSpeed = -10f;
 
     [Header("Ground Checking")]
     public float groundCheckOffset = 0.5f;
     public Vector2 groundCheckSize = new(0.4f, 0.1f);
     public LayerMask groundCheckMask;
 
+    [Header("Grapple Settings")]
+    public LayerMask grappleLayer;
+    public float grappleRange = 15f;
+    public float swingForce = 10f;
+    private Vector2 grapplePoint;
+    private bool isGrappling = false;
+
     private float accelerationRate;
     private float decelerationRate;
-
     private float gravity;
     private float initialJumpSpeed;
 
     private bool isGrounded = false;
     public bool isDead = false;
-
+    public LineRenderer lr;
+    public DistanceJoint2D dj;
     private Vector3 velocity;
 
     public void Start()
@@ -100,13 +108,117 @@ public class PlayerController : MonoBehaviour
         JumpUpdate();
 
         if (!isGrounded)
+        {
             velocity.y += gravity * Time.deltaTime;
+
+            if (velocity.y < maxFallSpeed)
+            {
+                velocity.y = maxFallSpeed;
+            }
+        }
         else
+        {
             velocity.y = 0;
+        }
+
         if (isGrounded)
             dashes = 1;
 
         body.velocity = velocity;
+
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            TryGrapple();
+        }
+
+        if (Input.GetKeyUp(KeyCode.E))
+        {
+            ReleaseGrapple();
+        }
+
+        if (isGrappling)
+        {
+            Swinging();
+            SeeRope();
+        }
+        if (Input.GetKey(KeyCode.W) && !isGrounded)
+        {
+            ReelIn();
+        }
+        if (Input.GetKey(KeyCode.S))
+        {
+            ReelOut();
+        }
+    }
+
+    private void TryGrapple()
+    {
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, GetMouseDirection(), grappleRange, grappleLayer);
+
+        if (hit.collider != null)
+        {
+            grapplePoint = hit.point;
+
+            dj.enabled = true;
+            dj.connectedAnchor = grapplePoint;
+            dj.distance = Vector2.Distance(transform.position, grapplePoint);
+            isGrappling = true;
+            lr.enabled = true;
+        }
+    }
+
+    private void ReelIn()
+    {
+        if (dj.distance > 1f)
+        {
+            dj.distance -= 4 * Time.deltaTime;
+
+            Vector2 directionToGrapple = (grapplePoint - (Vector2)transform.position).normalized;
+            body.AddForce(directionToGrapple * 4, ForceMode2D.Force);
+        }
+    }
+
+    private void ReelOut()
+    {
+        if (dj.distance < grappleRange)
+        {
+            dj.distance += 4 * Time.deltaTime;
+
+            Vector2 directionAwayFromGrapple = ((Vector2)transform.position - grapplePoint).normalized;
+            body.AddForce(directionAwayFromGrapple * 4, ForceMode2D.Force);
+        }
+    }
+
+    private void Swinging()
+    {
+        if (Input.GetKey(KeyCode.A))
+        {
+            body.AddForce(Vector2.left * swingForce * 10, ForceMode2D.Force);
+        }
+        else if (Input.GetKey(KeyCode.D))
+        {
+            body.AddForce(Vector2.right * swingForce * 10, ForceMode2D.Force);
+        }
+    }
+
+    private void ReleaseGrapple()
+    {
+        dj.enabled = false;
+        isGrappling = false;
+        lr.enabled = false;
+    }
+
+
+    private void SeeRope()
+    {
+        lr.SetPosition(0, transform.position);
+        lr.SetPosition(1, grapplePoint);
+    }
+
+    Vector2 GetMouseDirection()
+    {
+        Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        return (mousePosition - transform.position).normalized;
     }
 
 
@@ -136,6 +248,7 @@ public class PlayerController : MonoBehaviour
                 velocity.x = Mathf.Min(velocity.x, 0);
             }
         }
+
         if (Input.GetKeyDown(KeyCode.Q) && dashes > 0 && !isDashing)
         {
             isDashing = true;
@@ -163,8 +276,7 @@ public class PlayerController : MonoBehaviour
             }
 
             velocity = dashDirection * (dashDist / dashDuration);
-        
-    }
+        }
 
         if (isDashing)
         {
@@ -185,7 +297,6 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (collision.gameObject.CompareTag("powerup"))
@@ -199,10 +310,8 @@ public class PlayerController : MonoBehaviour
     private IEnumerator RespawnPowerup(GameObject powerup, float delay)
     {
         yield return new WaitForSeconds(delay);
-        powerup.SetActive(true); 
+        powerup.SetActive(true);
     }
-
-    
 
     private void CheckForGround()
     {
@@ -222,6 +331,7 @@ public class PlayerController : MonoBehaviour
     {
         return velocity.x != 0;
     }
+
     public bool IsGrounded()
     {
         return isGrounded;
@@ -232,3 +342,4 @@ public class PlayerController : MonoBehaviour
         return currentDirection;
     }
 }
+
