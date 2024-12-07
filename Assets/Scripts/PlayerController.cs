@@ -34,6 +34,12 @@ public class PlayerController : MonoBehaviour
     public float apexTime = 0.5f;
     public float maxFallSpeed = -10f;
 
+    [Header("Wall Jump")]
+    public float wallJumpForce = 10f;
+    public float wallSlideSpeed = -2f;
+    public Vector2 wallJumpDirection = new Vector2(1, 1).normalized;
+    private bool isTouchingWall = false;
+
     [Header("Ground Checking")]
     public float groundCheckOffset = 0.5f;
     public Vector2 groundCheckSize = new(0.4f, 0.1f);
@@ -73,6 +79,7 @@ public class PlayerController : MonoBehaviour
         previousState = currentState;
 
         CheckForGround();
+        CheckForWall();
 
         Vector3 playerInput = new Vector2();
         playerInput.x = Input.GetAxisRaw("Horizontal");
@@ -102,6 +109,15 @@ public class PlayerController : MonoBehaviour
                     else currentState = PlayerState.idle;
                 }
                 break;
+        }
+
+        if (isTouchingWall && !isGrounded && velocity.y < 0)
+        {
+            velocity.y = Mathf.Max(velocity.y, wallSlideSpeed);
+        }
+        if (Input.GetButtonDown("Jump") && isTouchingWall && !isGrounded)
+        {
+            WallJump();
         }
 
         MovementUpdate(playerInput);
@@ -149,6 +165,38 @@ public class PlayerController : MonoBehaviour
         {
             ReelOut();
         }
+    }
+
+    private void WallJump()
+    {
+        int wallDirection;
+        if (currentDirection == PlayerDirection.right)
+        {
+            wallDirection = -1;
+        }
+        else
+        {
+            wallDirection = 1;
+        }
+
+        velocity.x = wallJumpDirection.x * wallJumpForce * wallDirection;
+        velocity.y = wallJumpDirection.y * wallJumpForce;
+        isTouchingWall = false;
+    }
+
+    private void CheckForWall()
+    {
+        Vector2 wallCheckDirection;
+
+        if (currentDirection == PlayerDirection.right)
+        {
+            wallCheckDirection = Vector2.right;
+        }
+        else
+        {
+            wallCheckDirection = Vector2.left;
+        }
+        isTouchingWall = Physics2D.Raycast(transform.position, wallCheckDirection, groundCheckOffset, groundCheckMask);
     }
 
     private void TryGrapple()
@@ -320,6 +368,7 @@ public class PlayerController : MonoBehaviour
             groundCheckSize,
             0,
             groundCheckMask);
+
     }
 
     public void OnDrawGizmos()
