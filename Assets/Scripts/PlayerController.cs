@@ -65,6 +65,8 @@ public class PlayerController : MonoBehaviour
 
     public void Start()
     {
+        //Starting calculations
+
         body.gravityScale = 0;
 
         accelerationRate = maxSpeed / accelerationTime;
@@ -76,18 +78,28 @@ public class PlayerController : MonoBehaviour
 
     public void Update()
     {
+        // Sets state to current state
+
         previousState = currentState;
+
+        // Checks if player is touching anything
 
         CheckForGround();
         CheckForWall();
 
+        // Gets player input
+
         Vector3 playerInput = new Vector2();
         playerInput.x = Input.GetAxisRaw("Horizontal");
+
+        // Checks if player is dead
 
         if (isDead)
         {
             currentState = PlayerState.dead;
         }
+
+        // Switches player state based on behavior
 
         switch(currentState)
         {
@@ -111,6 +123,8 @@ public class PlayerController : MonoBehaviour
                 break;
         }
 
+        // Checks to see if conditions are right for wallsliding, and allowing for walljump if correct
+
         if (isTouchingWall && !isGrounded && velocity.y < 0)
         {
             velocity.y = Mathf.Max(velocity.y, wallSlideSpeed);
@@ -120,8 +134,12 @@ public class PlayerController : MonoBehaviour
             WallJump();
         }
 
+        // Player movement and jumping
+
         MovementUpdate(playerInput);
         JumpUpdate();
+
+        // Applies gravity if player is not on the ground
 
         if (!isGrounded)
         {
@@ -137,10 +155,14 @@ public class PlayerController : MonoBehaviour
             velocity.y = 0;
         }
 
+        // Allows for dashing if player lands on ground
+
         if (isGrounded)
             dashes = 1;
 
         body.velocity = velocity;
+
+        // Grappling states, E to shoot out the grapple hook, and it gets released upon lifting the key
 
         if (Input.GetKeyDown(KeyCode.E))
         {
@@ -152,11 +174,16 @@ public class PlayerController : MonoBehaviour
             ReleaseGrapple();
         }
 
+        // Player is able to swing/see the rope while grappling
+
         if (isGrappling)
         {
             Swinging();
             SeeRope();
         }
+
+        // Player can reel in or out from the grapple hook
+
         if (Input.GetKey(KeyCode.W) && !isGrounded)
         {
             ReelIn();
@@ -166,6 +193,8 @@ public class PlayerController : MonoBehaviour
             ReelOut();
         }
     }
+
+    // Checks the direction of the wall jumping off of and applies the velocity to the player pushing them off the wall
 
     private void WallJump()
     {
@@ -184,6 +213,8 @@ public class PlayerController : MonoBehaviour
         isTouchingWall = false;
     }
 
+    // Checks for wall using a raycast based on the player location, direction, how far it should check, and what it should check for (reusing some values) to figure out if playuer is touching the wall.
+
     private void CheckForWall()
     {
         Vector2 wallCheckDirection;
@@ -199,9 +230,14 @@ public class PlayerController : MonoBehaviour
         isTouchingWall = Physics2D.Raycast(transform.position, wallCheckDirection, groundCheckOffset, groundCheckMask);
     }
 
+
     private void TryGrapple()
     {
+        //Fires raycast from player in direction of mouse
+
         RaycastHit2D hit = Physics2D.Raycast(transform.position, GetMouseDirection(), grappleRange, grappleLayer);
+
+        // Makes sure it hit something, and then enables the distance joint from the player to the point that was hit by the grapple, and then sets the state 
 
         if (hit.collider != null)
         {
@@ -217,6 +253,8 @@ public class PlayerController : MonoBehaviour
 
     private void ReelIn()
     {
+        //Makes sure that player isn't too close to the grapple point to reel in, and pushes the player towards the grapple point
+
         if (dj.distance > 1f)
         {
             dj.distance -= 4 * Time.deltaTime;
@@ -228,6 +266,8 @@ public class PlayerController : MonoBehaviour
 
     private void ReelOut()
     {
+        //Makes sure that player isn't too far from the grapple point in accordance to the range to reel out, and pushes the player away from the grapple point
+
         if (dj.distance < grappleRange)
         {
             dj.distance += 4 * Time.deltaTime;
@@ -239,6 +279,8 @@ public class PlayerController : MonoBehaviour
 
     private void Swinging()
     {
+        // Applies force to the player in the direction of key pressed
+
         if (Input.GetKey(KeyCode.A))
         {
             body.AddForce(Vector2.left * swingForce * 10, ForceMode2D.Force);
@@ -249,6 +291,8 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // Disables grapple upon release
+
     private void ReleaseGrapple()
     {
         dj.enabled = false;
@@ -256,12 +300,15 @@ public class PlayerController : MonoBehaviour
         lr.enabled = false;
     }
 
+    // Line renderer shows the player rope for visual clarity by drawing a line between the player position and the grapple point
 
     private void SeeRope()
     {
         lr.SetPosition(0, transform.position);
         lr.SetPosition(1, grapplePoint);
     }
+
+    // Gets the direction of the mouse through ScreenToWorldPoint and returns the value in a useable way
 
     Vector2 GetMouseDirection()
     {
@@ -273,10 +320,14 @@ public class PlayerController : MonoBehaviour
 
     private void MovementUpdate(Vector3 playerInput)
     {
+        // Takes player input for direction
+
         if (playerInput.x < 0)
             currentDirection = PlayerDirection.left;
         else if (playerInput.x > 0)
             currentDirection = PlayerDirection.right;
+
+        // Moves the player if the input is greater than 0, and applies acceleration and deceleration according to velocity values
 
         if (playerInput.x != 0 && !isDashing)
         {
@@ -296,6 +347,8 @@ public class PlayerController : MonoBehaviour
                 velocity.x = Mathf.Min(velocity.x, 0);
             }
         }
+
+        // Dashing logic, makes player dash based on timer, getting the player's direction, then setting the magnitude and velocity
 
         if (Input.GetKeyDown(KeyCode.Q) && dashes > 0 && !isDashing)
         {
@@ -326,6 +379,8 @@ public class PlayerController : MonoBehaviour
             velocity = dashDirection * (dashDist / dashDuration);
         }
 
+        // Dash timer for the player dashing
+
         if (isDashing)
         {
             dashTimer -= Time.deltaTime;
@@ -336,6 +391,8 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // Jumping for tha player
+
     private void JumpUpdate()
     {
         if (isGrounded && Input.GetButton("Jump"))
@@ -344,6 +401,8 @@ public class PlayerController : MonoBehaviour
             isGrounded = false;
         }
     }
+
+    // Checks if player touches powerup that restores dashes and applies logic
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
@@ -355,11 +414,15 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    // Coroutine to check for when the powerup should respawn
+
     private IEnumerator RespawnPowerup(GameObject powerup, float delay)
     {
         yield return new WaitForSeconds(delay);
         powerup.SetActive(true);
     }
+
+    // Ground checking logic, that makes sure when player is on ground they are given the state of grounded
 
     private void CheckForGround()
     {
@@ -371,20 +434,28 @@ public class PlayerController : MonoBehaviour
 
     }
 
+    // Visualizes the player's grounded hitbox
+
     public void OnDrawGizmos()
     {
         Gizmos.DrawWireCube(transform.position + Vector3.down * groundCheckOffset, groundCheckSize);
     }
+
+    // IsWalking Bool based on if player is moving
 
     public bool IsWalking()
     {
         return velocity.x != 0;
     }
 
+    // IsGrounded check
+
     public bool IsGrounded()
     {
         return isGrounded;
     }
+
+    // Player direction
 
     public PlayerDirection GetFacingDirection()
     {
